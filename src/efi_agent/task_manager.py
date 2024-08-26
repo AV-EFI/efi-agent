@@ -18,9 +18,9 @@ class Scheduler:
     """Manage the tasks required to sync a batch of AVefi moving image
     records with the handle system.
 
-    Register a bunch of records via the ``add_record()`` method.
-    Processing the lot can be initiated by calling the ``submit()``
-    method.
+    For input, either provide a file name on initialisation, or add
+    records procedurally via the `.add_record()` method. Processing
+    the lot can be initiated by calling ``.submit()``.
 
     Since multiple manifestations can be linked to the same work, any
     manifestation may be linked to multiple works, and works may be
@@ -42,9 +42,10 @@ class Scheduler:
     ----------
     client : .api_client.EpicApi
         High level interface to ePIC.
-    result_log_file : str or pathlib.Path
-        Path to a file resulting records will be written to for
-        documentation purposes.
+    journal_file : str | pathlib.Path
+        Path to a file where actions on PIDs shall be logged.
+    input_file : str | pathlib.Path
+        JSON file containing AVefi moving image records.
 
     """
 
