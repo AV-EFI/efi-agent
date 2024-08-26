@@ -1,0 +1,28 @@
+[project]
+name = "efi-agent"
+version = "0.1.0"
+description = "Register PIDs according to the AVefi schema"
+authors = [
+    {name = "AVefi Working Group", email = "contact@av-efi.net"},
+]
+repository = "https://github.com/AV-EFI/efi-agent"
+documentation = "https://github.com/AV-EFI/efi-agent"
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    "avefi-schema @ git+https://github.com/AV-EFI/av-efi-schema.git",
+    "requests>=2.32.3",
+    "appdirs>=1.4.4",
+    "click>=8.1.7",
+]
+
+[project.scripts]
+efi-agent = "efi_agent.cli:cli_main"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
