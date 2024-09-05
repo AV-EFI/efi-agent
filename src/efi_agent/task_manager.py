@@ -8,10 +8,7 @@ from avefi_schema import model as efi
 from linkml_runtime.loaders import json_loader
 
 
-class Operations(enum.Enum):
-    CREATE = 1
-    GET = 2
-    UPDATE = 3
+Operation = enum.Enum('Operation', names='CREATE GET UPDATE')
 
 
 class Scheduler:
@@ -117,7 +114,7 @@ class Scheduler:
                         f"Unresolveable reference to {key} in input data")
                 for ref_handler, attr_name in refs:
                     if attr_name == 'is_item_of' \
-                       and ref_handler.tasks.get(Operations.CREATE):
+                       and ref_handler.tasks.get(Operation.CREATE):
                         handler = Handler(
                             self, pid=key[1],
                             source_key=ref_handler.source_key)
@@ -153,7 +150,7 @@ class Scheduler:
             dependencies = set()
             for attr_name, id in handler.iter_links():
                 if attr_name == 'is_item_of' and not handler.pid:
-                    item_create_task = handler.tasks.get(Operations.CREATE)
+                    item_create_task = handler.tasks.get(Operation.CREATE)
                 else:
                     item_create_task = None
                 dep = self.handler_lookup.get(id)
@@ -161,12 +158,12 @@ class Scheduler:
                     if not item_create_task:
                         continue
                     
-                dep_create_task = dep.tasks.get(Operations.CREATE)
+                dep_create_task = dep.tasks.get(Operation.CREATE)
                 if dep_create_task:
                     dependencies.add(dep_create_task)
-                dep_update_task = dep.tasks.get(Operations.UPDATE)
+                dep_update_task = dep.tasks.get(Operation.UPDATE)
                 if item_create_task and not dep_update_task:
-                    dep_update_task = dep.add_task(Operations.UPDATE)
+                    dep_update_task = dep.add_task(Operation.UPDATE)
                     graph[dep_update_task].add(item_create_task)
                 elif dep_update_task:
                     dependencies.add(dep_update_task)
@@ -191,7 +188,7 @@ class Scheduler:
             actions = []
             for handler in handlers:
                 action = None
-                for op in (Operations.UPDATE, Operations.CREATE):
+                for op in (Operation.UPDATE, Operation.CREATE):
                     task = handler.tasks.get(op)
                     if task and task.done:
                         action = task.operation.name
@@ -229,14 +226,14 @@ class Task:
 
     def execute(self):
         handler = self.handler
-        if self.operation == Operations.CREATE:
+        if self.operation == Operation.CREATE:
             r = self.client.create(handler.record)
             handler.pid, handler.record = self.client.efi_from_response(r)
         else:
             # must be an update then
             if not handler.record \
                or isinstance(handler.record, efi.Manifestation):
-                if not handler.tasks.get(Operations.CREATE):
+                if not handler.tasks.get(Operation.CREATE):
                     r = self.client.get(handler.pid)
                     pid, old_record = self.client.efi_from_response(r)
                     # Todo: Update references if PID has become an alias
@@ -316,10 +313,10 @@ class Handler:
             if isinstance(record, efi.WorkVariant):
                 raise NotImplementedError(
                     "Update of a Work/Variant is not implemented yet ({pid})")
-            operation = Operations.UPDATE
+            operation = Operation.UPDATE
             self._pid = pid
         else:
-            operation = Operations.CREATE
+            operation = Operation.CREATE
             self._pid = None
         self.add_task(operation)
 
