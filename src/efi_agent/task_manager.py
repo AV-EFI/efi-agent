@@ -382,7 +382,7 @@ class Handler:
             # Ignore has_item here and deal with that later
             link_attributes = ('is_manifestation_of', 'same_as')
         elif isinstance(self.record, efi.Item):
-            link_attributes = ('is_item_of', 'is_copy_of')
+            link_attributes = ('is_item_of', 'is_copy_of', 'is_derivative_of')
         else:
             raise ValueError(
                 f"Cannot handle {type(self.record)} (record={self.record})")
