@@ -49,7 +49,7 @@ class Scheduler:
     def __init__(self, client, journal_file, input_file=None):
         self.client = client
         self.journal_file = pathlib.Path(journal_file)
-        self.result_log = defaultdict(list)
+        self.result_log = []
         self.handler_lookup = {}
         self.handlers = []
         self.referencing = defaultdict(list)
@@ -99,6 +99,34 @@ class Scheduler:
         _raise_on_loop(handler)
         self.referencing[record_id].append((handler, attr_name))
 
+    def skip_previously_logged_tasks(self):
+        try:
+            with self.journal_file.open() as f:
+                self.result_log = json.load(f)
+        except FileNotFoundError:
+            return
+        for entry in self.result_log:
+            handler = None
+            local_id = entry['local_id']
+            if local_id:
+                handler = self.handler_lookup.get(
+                    hashable_id(efi.LocalResource(id=local_id)))
+            if not handler:
+                handler = self.handler_lookup.get(
+                    hashable_id(efi.AVefiResource(id=entry['pid'])))
+            if handler and handler.record:
+                if not handler.pid:
+                    handler.pid = entry['pid']
+                elif handler.pid != entry['pid']:
+                    raise RuntimeError(
+                        f"Conflicting PIDs for the same record:"
+                        f" {handler.pid} != {entry['pid']}")
+                op = getattr(Operation, entry['action'])
+                try:
+                    del handler.tasks[op]
+                except KeyError:
+                    pass
+
     def record_reverse_dependencies(self):
         """Make handlers aware of down-stream references.
 
@@ -115,9 +143,7 @@ class Scheduler:
                 for ref_handler, attr_name in refs:
                     if attr_name == 'is_item_of' \
                        and ref_handler.tasks.get(Operation.CREATE):
-                        handler = Handler(
-                            self, pid=key[1],
-                            source_key=ref_handler.source_key)
+                        handler = Handler(self, pid=key[1])
                         self.handlers.insert(0, handler)
             if handler:
                 handler.referenced_by.extend(refs)
@@ -142,7 +168,6 @@ class Scheduler:
             Graph representing dependdencies between tasks
 
         """
-        self.record_reverse_dependencies()
         graph = defaultdict(set)
         for handler in self.handlers:
             if not handler.record:
@@ -172,6 +197,8 @@ class Scheduler:
         return graph
 
     def submit(self):
+        self.skip_previously_logged_tasks()
+        self.record_reverse_dependencies()
         sorter = graphlib.TopologicalSorter(self.prepare_dependency_graph())
         # Make sure we have the right permissions
         with self.journal_file.open('a+') as f:
@@ -183,33 +210,9 @@ class Scheduler:
             self.write_pid_journal()
 
     def write_pid_journal(self):
-        result_list = []
-        for source_key, handlers in self.result_log.items():
-            actions = []
-            for handler in handlers:
-                action = None
-                for op in (Operation.UPDATE, Operation.CREATE):
-                    task = handler.tasks.get(op)
-                    if task and task.done:
-                        action = task.operation.name
-                if not action:
-                    continue
-                entry = {
-                    'action': action,
-                    'pid': handler.pid,
-                }
-                if handler.record:
-                    entry['record_type'] = \
-                        handler.record.__class__.__name__
-                actions.append(entry)
-            if actions:
-                result_list.append({
-                    'source_key': list(source_key),
-                    'actions': actions,
-                })
-        if result_list:
-            with self.journal_file.open('a+') as f:
-                json.dump(result_list, f, indent=2)
+        if self.result_log:
+            with self.journal_file.open('w') as f:
+                json.dump(self.result_log, f, indent=2)
                 f.write('\n')
 
 
@@ -257,9 +260,17 @@ class Task:
             r = self.client.update(handler.pid, handler.record)
             # Todo: Update references if PID has become an alias
             handler.pid, handler.record = self.client.efi_from_response(r)
-        result_log = handler.scheduler.result_log[tuple(handler.source_key)]
-        if handler not in result_log:
-            result_log.append(handler)
+
+        # log results
+        entry = {
+            'action': self.operation.name,
+            'pid': handler.pid,
+        }
+        if handler.record:
+            if handler.local_id:
+                entry['local_id'] = handler.local_id
+            entry['record_type'] = handler.record.__class__.__name__
+        handler.scheduler.result_log.append(entry)
         self.done = True
 
 
@@ -277,23 +288,20 @@ class Handler:
 
     Attributes
     ----------
+    scheduler : Scheduler
+        Instance of the scheduler taking care of this handlers tasks.
     record : efi.MovingImageRecord | None
         A record whose PID needs to be created or updated.
     pid : str | None
         The persistent identifier as a string.
-    tasks : Dict[Task]
-        The tasks scheduled for ``pid``.
 
     """
-    def __init__(self, scheduler, record=None, pid=None, source_key=None):
+    def __init__(self, scheduler, record=None, pid=None):
         self.scheduler = scheduler
-        self.source_key = source_key
         self.record = record
         self.referenced_by = []
         self.tasks = {}
         if record:
-            if not source_key and record.has_source_key:
-                self.source_key = record.has_source_key
             self.name = next(self.iter_hashable_ids())
             for key in self.iter_hashable_ids():
                 if key in scheduler.handler_lookup:
@@ -315,9 +323,11 @@ class Handler:
                     "Update of a Work/Variant is not implemented yet ({pid})")
             operation = Operation.UPDATE
             self._pid = pid
+            self.local_id = None
         else:
             operation = Operation.CREATE
             self._pid = None
+            self.local_id = self.record.has_identifier[0].id
         self.add_task(operation)
 
     def add_task(self, operation):
@@ -335,6 +345,8 @@ class Handler:
     @pid.setter
     def pid(self, value):
         self._pid = value
+        lookup_id = hashable_id(efi.AVefiResource(id=value))
+        self.scheduler.handler_lookup[lookup_id] = self
         self.update_references()
 
     def update_references(self):
