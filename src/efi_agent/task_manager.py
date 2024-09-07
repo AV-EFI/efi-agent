@@ -2,10 +2,14 @@ from collections import defaultdict
 import enum
 import graphlib
 import json
+import logging
 import pathlib
 
 from avefi_schema import model as efi
 from linkml_runtime.loaders import json_loader
+
+
+log = logging.getLogger(__name__)
 
 
 Operation = enum.Enum('Operation', names='CREATE GET UPDATE')
@@ -105,6 +109,7 @@ class Scheduler:
                 self.result_log = json.load(f)
         except FileNotFoundError:
             return
+        skip_count = 0
         for entry in self.result_log:
             handler = None
             local_id = entry['local_id']
@@ -126,6 +131,12 @@ class Scheduler:
                     del handler.tasks[op]
                 except KeyError:
                     pass
+                else:
+                    skip_count += 1
+        if skip_count:
+            log.info(
+                f"Skipping {skip_count} tasks logged as complete in"
+                f" {self.journal_file}")
 
     def record_reverse_dependencies(self):
         """Make handlers aware of down-stream references.
@@ -271,6 +282,7 @@ class Task:
                 entry['local_id'] = handler.local_id
             entry['record_type'] = handler.record.__class__.__name__
         handler.scheduler.result_log.append(entry)
+        log.info(entry)
         self.done = True
 
 

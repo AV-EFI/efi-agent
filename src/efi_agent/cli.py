@@ -1,6 +1,40 @@
+import logging
+import logging.config
+import os
+import sys
+
 import click
 
 from . import api_client, task_manager
+
+
+log = logging.getLogger(__name__)
+loglevel = os.environ.get(
+    f"{__package__.upper()}_LOGLEVEL", 'INFO').upper()
+logging_config = {
+    'version': 1,
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': loglevel,
+            'formatter': 'simple',
+            'stream': 'ext://sys.stderr',
+        },
+    },
+    'loggers': {
+        __package__: {
+            'level': 'DEBUG',
+            'handlers': ['console'],
+        },
+    },
+    'disable_existing_loggers': False,
+}
+logging.config.dictConfig(logging_config)
 
 
 @click.group()
@@ -25,6 +59,10 @@ def cli_main():
 def push(
         input_file, journal=None, profile=None, prefix=None, suffix=None):
     """Push AVefi records to the handle system, updating or creating PIDs."""
-    api = api_client.EpicApi(profile, prefix, suffix=suffix)
-    scheduler = task_manager.Scheduler(api, journal, input_file=input_file)
-    scheduler.submit()
+    try:
+        api = api_client.EpicApi(profile, prefix, suffix=suffix)
+        scheduler = task_manager.Scheduler(api, journal, input_file=input_file)
+        scheduler.submit()
+    except Exception:
+        log.exception('Could not handle the following exception:')
+        sys.exit(1)
