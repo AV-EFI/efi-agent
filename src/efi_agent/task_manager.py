@@ -217,6 +217,10 @@ class Scheduler:
         try:
             for task in sorter.static_order():
                 task.execute()
+        except Exception as e:
+            id = task.handler.local_id or task.handler.pid
+            raise RuntimeError(
+                f"Failed {task.operation.name} on record {id}") from e
         finally:
             self.write_pid_journal()
 
