@@ -147,15 +147,17 @@ class Scheduler:
         """
         for key, refs in self.referencing.items():
             handler = self.handler_lookup.get(key)
-            if not handler:
-                if key[0] == 'avefi:LocalResource':
-                    raise ValueError(
-                        f"Unresolveable reference to {key} in input data")
-                for ref_handler, attr_name in refs:
-                    if attr_name == 'is_item_of' \
-                       and ref_handler.tasks.get(Operation.CREATE):
+            if not handler and key[0] == 'avefi:LocalResource':
+                raise ValueError(
+                    f"Unresolveable reference to {key} in input data")
+            for ref_handler, attr_name in refs:
+                if attr_name == 'is_item_of' \
+                   and ref_handler.tasks.get(Operation.CREATE):
+                    if not handler:
                         handler = Handler(self, pid=key[1])
                         self.handlers.insert(0, handler)
+                        self.handler_lookup[key] = handler
+                    handler.add_task(Operation.UPDATE)
             if handler:
                 handler.referenced_by.extend(refs)
                 if handler.pid and key[0] != 'avefi:AVefiResource':
@@ -181,35 +183,31 @@ class Scheduler:
         """
         graph = defaultdict(set)
         for handler in self.handlers:
-            if not handler.record:
-                continue
             dependencies = set()
             for attr_name, id in handler.iter_links():
-                if attr_name == 'is_item_of' and not handler.pid:
-                    item_create_task = handler.tasks.get(Operation.CREATE)
-                else:
-                    item_create_task = None
                 dep = self.handler_lookup.get(id)
-                if not dep:
-                    if not item_create_task:
-                        continue
-                    
+                if not dep or not dep.tasks:
+                    continue
                 dep_create_task = dep.tasks.get(Operation.CREATE)
+                dep_update_task = dep.tasks.get(Operation.UPDATE)
                 if dep_create_task:
                     dependencies.add(dep_create_task)
-                dep_update_task = dep.tasks.get(Operation.UPDATE)
-                if item_create_task and not dep_update_task:
-                    dep_update_task = dep.add_task(Operation.UPDATE)
-                    graph[dep_update_task].add(item_create_task)
-                elif dep_update_task:
-                    dependencies.add(dep_update_task)
+                if dep_update_task:
+                    if attr_name == 'is_item_of':
+                        item_create_task = handler.tasks.get(Operation.CREATE)
+                        if item_create_task:
+                            graph[dep_update_task].add(item_create_task)
+                        else:
+                            dependencies.add(dep_update_task)
+                    else:
+                        dependencies.add(dep_update_task)
             for task in handler.tasks.values():
                 graph[task].update(dependencies)
         return graph
 
     def submit(self):
-        self.skip_previously_logged_tasks()
         self.record_reverse_dependencies()
+        self.skip_previously_logged_tasks()
         sorter = graphlib.TopologicalSorter(self.prepare_dependency_graph())
         # Make sure we have the right permissions
         with self.journal_file.open('a+') as f:
