@@ -1,0 +1,6 @@
+services:
+  efi-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: efi-agent
