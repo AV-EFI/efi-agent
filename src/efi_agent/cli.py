@@ -55,14 +55,16 @@ def cli_main():
 @click.option(
     '--suffix',
     help='Suffix to be used when generating handles.')
-@click.argument('input_file', type=click.Path(dir_okay=False, exists=True))
-def push(
-        input_file, journal=None, profile=None, prefix=None, suffix=None):
+@click.argument(
+    'input_files', nargs=-1, type=click.Path(dir_okay=False, exists=True))
+def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
     """Push AVefi records to the handle system, updating or creating PIDs."""
     try:
         api = api_client.EpicApi(profile, prefix, suffix=suffix)
-        scheduler = task_manager.Scheduler(api, journal, input_file=input_file)
-        scheduler.submit()
+        for input_file in input_files:
+            scheduler = task_manager.Scheduler(
+                api, journal, input_file=input_file)
+            scheduler.submit()
     except Exception:
         log.exception('Could not handle the following exception:')
         sys.exit(1)
