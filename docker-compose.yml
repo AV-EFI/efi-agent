@@ -3,4 +3,4 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: efi-agent
+    image: ghcr.io/av-efi/efi-agent:main
