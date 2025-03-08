@@ -1,6 +1,8 @@
+import json
 import logging
 import logging.config
 import os
+import pathlib
 import sys
 
 import click
@@ -59,12 +61,33 @@ def cli_main():
     'input_files', nargs=-1, type=click.Path(dir_okay=False, exists=True))
 def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
     """Push AVefi records to the handle system, updating or creating PIDs."""
+    journal_file = pathlib.Path(journal)
+    result_log = []
     try:
+        # Make sure we have write permissions and read present contents
+        with journal_file.open('a+') as f:
+            if f.tell() != 0:
+                f.seek(0)
+                result_log = json.load(f)
         api = api_client.EpicApi(profile, prefix, suffix=suffix)
         for input_file in input_files:
-            scheduler = task_manager.Scheduler(
-                api, journal, input_file=input_file)
-            scheduler.submit()
+            try:
+                scheduler = task_manager.Scheduler(
+                    api, result_log, input_file=input_file)
+                scheduler.submit()
+            except task_manager.UnreferencedError as e:
+                log.error(f"Skipped {input_file} due to incomplete data: {e}")
+            except Exception:
+                write_pid_journal(journal_file, result_log)
+            else:
+                write_pid_journal(journal_file, result_log)
     except Exception:
         log.exception('Could not handle the following exception:')
         sys.exit(1)
+
+
+def write_pid_journal(journal_file, result_log):
+    if result_log:
+        with journal_file.open('w') as f:
+            json.dump(result_log, f, indent=2)
+            f.write('\n')

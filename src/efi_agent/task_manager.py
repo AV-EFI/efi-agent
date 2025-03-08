@@ -1,7 +1,6 @@
 from collections import defaultdict
 import enum
 import graphlib
-import json
 import logging
 import pathlib
 
@@ -13,6 +12,10 @@ log = logging.getLogger(__name__)
 
 
 Operation = enum.Enum('Operation', names='CREATE GET UPDATE')
+
+
+class UnreferencedError(ValueError):
+    pass
 
 
 class Scheduler:
@@ -43,17 +46,16 @@ class Scheduler:
     ----------
     client : .api_client.EpicApi
         High level interface to ePIC.
-    journal_file : str | pathlib.Path
-        Path to a file where actions on PIDs shall be logged.
+    result_log : list of dicts
+        Log of previously executed tasks from a journal file
     input_file : str | pathlib.Path
         JSON file containing AVefi moving image records.
 
     """
 
-    def __init__(self, client, journal_file, input_file=None):
+    def __init__(self, client, result_log, input_file=None):
         self.client = client
-        self.journal_file = pathlib.Path(journal_file)
-        self.result_log = []
+        self.result_log = result_log
         self.handler_lookup = {}
         self.handlers = []
         self.referencing = defaultdict(list)
@@ -104,11 +106,6 @@ class Scheduler:
         self.referencing[record_id].append((handler, attr_name))
 
     def skip_previously_logged_tasks(self):
-        try:
-            with self.journal_file.open() as f:
-                self.result_log = json.load(f)
-        except FileNotFoundError:
-            return
         skip_count = 0
         for entry in self.result_log:
             handler = None
@@ -135,8 +132,7 @@ class Scheduler:
                     skip_count += 1
         if skip_count:
             log.info(
-                f"Skipping {skip_count} tasks logged as complete in"
-                f" {self.journal_file}")
+                f"Skipping {skip_count} tasks logged as complete in journal")
 
     def record_reverse_dependencies(self):
         """Make handlers aware of down-stream references.
@@ -183,6 +179,11 @@ class Scheduler:
         """
         graph = defaultdict(set)
         for handler in self.handlers:
+            if handler.tasks.get(Operation.CREATE) \
+               and not isinstance(handler.record, efi.Item) \
+               and not handler.referenced_by:
+                raise UnreferencedError(
+                    f"No item provided for {handler.local_id}")
             dependencies = set()
             for attr_name, id in handler.iter_links():
                 dep = self.handler_lookup.get(id)
@@ -209,9 +210,6 @@ class Scheduler:
         self.record_reverse_dependencies()
         self.skip_previously_logged_tasks()
         sorter = graphlib.TopologicalSorter(self.prepare_dependency_graph())
-        # Make sure we have the right permissions
-        with self.journal_file.open('a+') as f:
-            pass
         try:
             for task in sorter.static_order():
                 task.execute()
@@ -219,14 +217,6 @@ class Scheduler:
             id = task.handler.local_id or task.handler.pid
             raise RuntimeError(
                 f"Failed {task.operation.name} on record {id}") from e
-        finally:
-            self.write_pid_journal()
-
-    def write_pid_journal(self):
-        if self.result_log:
-            with self.journal_file.open('w') as f:
-                json.dump(self.result_log, f, indent=2)
-                f.write('\n')
 
 
 class Task:
