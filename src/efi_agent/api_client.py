@@ -102,7 +102,10 @@ class EpicApi(requests.Session):
             raise ValueError(
                 f"efi_record must be of type {self.EFI_BASE_CLASS} but is"
                 f" {type(efi_record)} instead")
-        efi_record.described_by = efi.DescriptionResource(**self.profile)
+        if isinstance(efi_record, efi.WorkVariant):
+            efi_record.described_by = None
+        else:
+            efi_record.described_by = efi.DescriptionResource(**self.profile)
         efi_dict = remove_empty_items(efi_record, hide_protected_keys=True)
         for key_seq in self.PURGE_SLOTS:
             dict_ptr = efi_dict
