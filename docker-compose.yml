@@ -5,5 +5,5 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/av-efi/efi-agent:main
     volumes:
-      - $HOME/.config/efi-agent:/root/.config/efi-agent:ro
+      - $HOME/.config/efi_agent:/root/.config/efi_agent:ro
       - .:/data:Z
