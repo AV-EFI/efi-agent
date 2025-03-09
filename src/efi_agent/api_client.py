@@ -1,4 +1,5 @@
 import pathlib
+import re
 import urllib.parse as urlparse
 
 import appdirs
@@ -103,6 +104,7 @@ class EpicApi(requests.Session):
                 f"efi_record must be of type {self.EFI_BASE_CLASS} but is"
                 f" {type(efi_record)} instead")
         efi_record.described_by = efi.DescriptionResource(**self.profile)
+        apply_fixes(efi_record)
         efi_dict = remove_empty_items(efi_record, hide_protected_keys=True)
         for key_seq in self.PURGE_SLOTS:
             dict_ptr = efi_dict
@@ -133,3 +135,35 @@ class EpicApi(requests.Session):
         except HTTPError as e:
             raise ApiError.from_http_error(e) from e
         return r
+
+
+def apply_fixes(efi_record):
+    """Fix common mistakes, so they will not cause a schema
+    violation.
+
+    Make sure all has_duration.has_value fields actually comply with
+    the AVefi schema. Further fixes may be added.
+
+    Note, this function modifies the supplied record in place.
+
+    """
+    try:
+        orig_value = efi_record['has_duration']['has_value']
+    except (KeyError, TypeError):
+        return
+    if re.search(r'^PT[1-9]*[0-9][0-9]H[0-5][0-9]M[0-5][0-9]S$', orig_value):
+        return
+    m = re.search(
+        r'^PT((?P<H>[0-9]+)H)?((?P<M>[0-9]+)M)?((?P<S>[0-9]+)S)?$',
+        orig_value)
+    if not m:
+        raise ValueError(f"Cannot parse duration: {orig_value}")
+    m_groups = m.groupdict()
+    seconds = int(m_groups['S'] or '0') + 60 * (
+        int(m_groups['M'] or '0') + 60 * int(m_groups['H'] or '0'))
+    hours = seconds // 3600
+    seconds -= hours * 3600
+    minutes = seconds // 60
+    seconds -= minutes * 60
+    efi_record['has_duration']['has_value'] = \
+        f"PT{hours:0>2}H{minutes:0>2}M{seconds:0>2}S"
