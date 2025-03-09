@@ -71,6 +71,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
                 result_log = json.load(f)
         api = api_client.EpicApi(profile, prefix, suffix=suffix)
         for input_file in input_files:
+            log.info(f"Processing {input_file}")
             try:
                 scheduler = task_manager.Scheduler(
                     api, result_log, input_file=input_file)
@@ -79,6 +80,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
                 log.error(f"Skipped {input_file} due to incomplete data: {e}")
             except Exception:
                 write_pid_journal(journal_file, result_log)
+                raise
             else:
                 write_pid_journal(journal_file, result_log)
     except Exception:
