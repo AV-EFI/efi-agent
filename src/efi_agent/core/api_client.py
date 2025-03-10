@@ -11,7 +11,8 @@ from requests import auth
 from requests.exceptions import HTTPError, JSONDecodeError
 import yaml
 
-CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(appname=__package__))
+CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(
+    appname=__package__.split('.')[0]))
 
 
 class ApiError(HTTPError):
