@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-efi-agent = "efi_agent.cli:cli_main"
+efi-agent = "efi_agent.main:cli_main"
 
 [build-system]
 requires = ["pdm-backend"]
