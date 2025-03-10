@@ -5,8 +5,8 @@ import sys
 
 import click
 
-from . import api_client, task_manager
 from .cli import cli_main
+from .core import api_client, task_manager
 
 
 log = logging.getLogger(__name__)
