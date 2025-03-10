@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import re
 import urllib.parse as urlparse
@@ -11,6 +12,8 @@ from requests import auth
 from requests.exceptions import HTTPError, JSONDecodeError
 import yaml
 
+
+log = logging.getLogger(__name__)
 CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(
     appname=__package__.split('.')[0]))
 
@@ -131,6 +134,13 @@ class EpicApi(requests.Session):
             kwargs['json'] = self.handle_from_efi(efi_record)
         r = super().request(
             method, url, auth=self.auth, **kwargs)
+        # Evil hack trying to mitigate spurious server errors
+        if r.status_code == 500:
+            log.warning(
+                f"Server sent {r.status_code} in response to"
+                f" {r.request.method} on {r.url}, retrying once")
+            r = super().request(
+                method, url, auth=self.auth, **kwargs)
         try:
             r.raise_for_status()
         except HTTPError as e:
