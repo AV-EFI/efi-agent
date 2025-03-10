@@ -3,7 +3,7 @@ import logging.config
 import os
 import sys
 
-from . import push
+from . import move_out, push
 from .cli import cli_main
 
 
