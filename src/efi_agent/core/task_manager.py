@@ -234,7 +234,7 @@ class Task:
         handler = self.handler
         if self.operation == Operation.CREATE:
             if handler.record.category == 'avefi:Manifestation' \
-               and handler.record.get('has_item'):
+               and handler.record.has_item:
                 handler.record.has_item = None
             r = self.client.create(handler.record)
             handler.pid, handler.record = self.client.efi_from_response(r)
