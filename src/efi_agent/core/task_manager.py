@@ -325,9 +325,10 @@ class Handler:
         else:
             self.name = ('avefi:AVefiResource', pid)
         if pid:
-            if isinstance(record, efi.WorkVariant):
-                raise NotImplementedError(
-                    "Update of a Work/Variant is not implemented yet ({pid})")
+            # TODO: Uncomment once we actually do merging
+            # if isinstance(record, efi.WorkVariant):
+            #     raise NotImplementedError(
+            #         "Update of a Work/Variant is not implemented yet ({pid})")
             operation = Operation.UPDATE
             self._pid = pid
             self.local_id = None
