@@ -308,6 +308,7 @@ class Handler:
         self.record = record
         self.referenced_by = []
         self.tasks = {}
+        self.local_id = None
         if record:
             self.name = next(self.iter_hashable_ids())
             for key in self.iter_hashable_ids():
@@ -322,6 +323,9 @@ class Handler:
                         raise ValueError(
                             f"Two PIDs provided for the same record"
                             f" ({pid}, {key[1]})")
+                elif key[0] == 'avefi:LocalResource':
+                    if not self.local_id:
+                        self.local_id = key[1]
         else:
             self.name = ('avefi:AVefiResource', pid)
         if pid:
@@ -331,11 +335,9 @@ class Handler:
             #         "Update of a Work/Variant is not implemented yet ({pid})")
             operation = Operation.UPDATE
             self._pid = pid
-            self.local_id = None
         else:
             operation = Operation.CREATE
             self._pid = None
-            self.local_id = self.record.has_identifier[0].id
         self.add_task(operation)
 
     def add_task(self, operation):
