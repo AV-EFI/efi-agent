@@ -65,6 +65,8 @@ class Scheduler:
     def load_from_file(self, input_file):
         efi_records = json_loader.load_any(
             str(input_file), efi.MovingImageRecord)
+        if not isinstance(efi_records, list):
+            efi_records = [efi_records]
         for record in efi_records:
             self.add_record(record)
 
