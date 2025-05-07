@@ -96,8 +96,9 @@ class EpicApi(requests.Session):
             efi_record = json_loader.loads(
                 values[1]['parsed_data']['value'], self.EFI_BASE_CLASS)
             efi_record.has_identifier.append(efi.AVefiResource(id=pid))
-            efi_record.described_by.last_modified = efi.ISODate(
-                values[2]['timestamp'])
+            if efi_record.described_by:
+                efi_record.described_by.last_modified = efi.ISODate(
+                    values[2]['timestamp'])
         else:
             efi_record = None
         return pid, efi_record
