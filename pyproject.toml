@@ -21,8 +21,5 @@ dependencies = [
 efi-agent = "efi_agent.main:cli_main"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.pdm]
-distribution = true
+requires = ["uv_build>=0.8.9,<0.9.0"]
+build-backend = "uv_build"
