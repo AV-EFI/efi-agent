@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 import re
 import urllib.parse as urlparse
+from uuid import uuid4
 
 import appdirs
 from avefi_schema import model_pydantic_v2 as efi
@@ -37,6 +38,7 @@ class EpicApi(requests.Session):
         ('has_source_key',),
         ('described_by', 'last_modified'),
     ]
+    www_prefix = 'https://www.av-efi.net/film/'
 
     def __init__(
             self, profile: Path | str, prefix: str, suffix: str | None = None,
@@ -62,18 +64,29 @@ class EpicApi(requests.Session):
         self.auth = auth.HTTPBasicAuth(creds['username'], creds['password'])
 
     def create(self, efi_record: efi.MovingImageRecord):
-        url = self.prefix
+        pid = f"{self.prefix}/{str(uuid4()).upper()}"
         if self.suffix:
-            url += f"?suffix={self.suffix}"
-        return self.request('POST', url, efi_record=efi_record)
+            pid += f"-{self.suffix}"
+        return self._put(pid, efi_record, preexisting=False)
 
     def update(self, pid: str, efi_record: efi.MovingImageRecord):
-        return self.request('PUT', pid, efi_record=efi_record)
+        return self._put(pid, efi_record)
+
+    def _put(
+            self, pid: str, efi_record: efi.MovingImageRecord,
+            preexisting: bool = True):
+        payload = self.handle_from_efi(pid, efi_record)
+        headers = {}
+        if not preexisting:
+            headers = {'If-None-Match': '*'}
+        return self.request('PUT', pid, headers=headers, json=payload)
 
     def get(self, pid: str):
         return self.request('GET', pid)
 
-    def efi_from_response(self, response, unvalidated_json=False):
+    def efi_from_response(
+            self, response, unvalidated_json=False
+    ) -> tuple[str, efi.MovingImageRecord]:
         if response.request.method in ('POST', 'PUT'):
             pid = response.json().get('handle')
             values = response.json().get('values')
@@ -108,7 +121,8 @@ class EpicApi(requests.Session):
             efi_record = None
         return pid, efi_record
 
-    def handle_from_efi(self, efi_record):
+    def handle_from_efi(
+            self, pid: str, efi_record: efi.MovingImageRecord) -> dict:
         if not isinstance(efi_record, self.EFI_BASE_CLASS):
             raise ValueError(
                 f"efi_record must be of type {self.EFI_BASE_CLASS} but is"
@@ -132,12 +146,14 @@ class EpicApi(requests.Session):
             'type': 'has_record',
             'parsed_data': efi_dict,
             'idx': 2,
+        },{
+            'type': 'URL',
+            'parsed_data': f"{self.www_prefix}{pid[len(self.prefix)+1:]}",
+            'idx': 3,
         }]
 
     def request(self, method, relative_url, efi_record=None, **kwargs):
         url = urlparse.urljoin(self.base_url, relative_url)
-        if efi_record and not kwargs.get('json'):
-            kwargs['json'] = self.handle_from_efi(efi_record)
         r = super().request(
             method, url, auth=self.auth, **kwargs)
         # Evil hack trying to mitigate spurious server errors
