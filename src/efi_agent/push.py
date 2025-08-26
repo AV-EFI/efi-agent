@@ -42,7 +42,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
             log.info(f"Processing {input_file}")
             try:
                 scheduler = task_manager.Scheduler(
-                    api, result_log, input_file=input_file)
+                    api, result_log, input_file=pathlib.Path(input_file))
                 scheduler.submit()
             except task_manager.UnreferencedError as e:
                 log.error(f"Skipped {input_file} due to incomplete data: {e}")

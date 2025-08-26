@@ -4,9 +4,7 @@ import re
 import urllib.parse as urlparse
 
 import appdirs
-from avefi_schema import model as efi
-from linkml_runtime.loaders import json_loader
-from linkml_runtime.utils.formatutils import remove_empty_items
+from avefi_schema import model_pydantic_v2 as efi
 import requests
 from requests import auth
 from requests.exceptions import HTTPError, JSONDecodeError
@@ -93,12 +91,11 @@ class EpicApi(requests.Session):
             if values[0].get('parsed_data', {}).get('value') != self.KIP:
                 raise ValueError(
                     f"Handle not compliant with KIP {self.KIP} ({pid})")
-            efi_record = json_loader.loads(
-                values[1]['parsed_data']['value'], self.EFI_BASE_CLASS)
+            efi_record = efi.MovingImageRecordTypeAdapter.validate_json(
+                values[1]['parsed_data']['value'])
             efi_record.has_identifier.append(efi.AVefiResource(id=pid))
             if efi_record.described_by:
-                efi_record.described_by.last_modified = efi.ISODate(
-                    values[2]['timestamp'])
+                efi_record.described_by.last_modified = values[2]['timestamp']
         else:
             efi_record = None
         return pid, efi_record
@@ -110,7 +107,7 @@ class EpicApi(requests.Session):
                 f" {type(efi_record)} instead")
         efi_record.described_by = efi.DescriptionResource(**self.profile)
         apply_fixes(efi_record)
-        efi_dict = remove_empty_items(efi_record, hide_protected_keys=True)
+        efi_dict = efi_record.model_dump(exclude_none=True)
         for key_seq in self.PURGE_SLOTS:
             dict_ptr = efi_dict
             try:

@@ -4,8 +4,7 @@ import graphlib
 import logging
 import pathlib
 
-from avefi_schema import model as efi
-from linkml_runtime.loaders import json_loader
+from avefi_schema import model_pydantic_v2 as efi
 
 
 log = logging.getLogger(__name__)
@@ -63,8 +62,9 @@ class Scheduler:
             self.load_from_file(input_file)
 
     def load_from_file(self, input_file):
-        efi_records = json_loader.load_any(
-            str(input_file), efi.MovingImageRecord)
+        with input_file.open() as f:
+            records = efi.MovingImageRecords.model_validate_json(f.read())
+        efi_records = records.root
         if not isinstance(efi_records, list):
             efi_records = [efi_records]
         for record in efi_records:
