@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 import re
@@ -72,7 +73,7 @@ class EpicApi(requests.Session):
     def get(self, pid: str):
         return self.request('GET', pid)
 
-    def efi_from_response(self, response):
+    def efi_from_response(self, response, unvalidated_json=False):
         if response.request.method in ('POST', 'PUT'):
             pid = response.json().get('handle')
             values = response.json().get('values')
@@ -90,11 +91,19 @@ class EpicApi(requests.Session):
             if values[0].get('parsed_data', {}).get('value') != self.KIP:
                 raise ValueError(
                     f"Handle not compliant with KIP {self.KIP} ({pid})")
-            efi_record = efi.MovingImageRecordTypeAdapter.validate_json(
-                values[1]['parsed_data']['value'])
-            efi_record.has_identifier.append(efi.AVefiResource(id=pid))
-            if efi_record.described_by:
-                efi_record.described_by.last_modified = values[2]['timestamp']
+            if unvalidated_json:
+                efi_record = json.loads(values[1]['parsed_data']['value'])
+                efi_record.get('has_identifier', []).append(
+                    efi.AVefiResource(id=pid).model_dump())
+                if efi_record.get('described_by'):
+                    efi_record['described_by']['last_modified'] = values[2][
+                        'timestamp']
+            else:
+                efi_record = efi.MovingImageRecordTypeAdapter.validate_json(
+                    values[1]['parsed_data']['value'])
+                efi_record.has_identifier.append(efi.AVefiResource(id=pid))
+                if efi_record.described_by:
+                    efi_record.described_by.last_modified = values[2]['timestamp']
         else:
             efi_record = None
         return pid, efi_record

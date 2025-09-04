@@ -246,15 +246,24 @@ class Task:
                or isinstance(handler.record, efi.Manifestation):
                 if not handler.tasks.get(Operation.CREATE):
                     r = self.client.get(handler.pid)
-                    pid, old_record = self.client.efi_from_response(r)
+                    # Note that old record potentially does not
+                    # validate against current schema yet
+                    pid, json_record = self.client.efi_from_response(
+                        r, unvalidated_json=True)
                     # Todo: Update references if PID has become an alias
                     if pid != handler.pid:
                         raise RuntimeError(
                             f"PID for manifestation changed from {handler.pid}"
                             f" to {pid}")
                     if not handler.record:
-                        handler.record = old_record
-                    has_item = old_record.has_item
+                        handler.record = \
+                            efi.MovingImageRecordTypeAdapter.validate(
+                                json_record)
+                        has_item = handler.record.has_item
+                    else:
+                        has_item = [
+                            efi.AVefiResource.model_validate(i)
+                            for i in json_record['has_item']]
                 else:
                     has_item = []
                 for item_handler in _filter_by(
