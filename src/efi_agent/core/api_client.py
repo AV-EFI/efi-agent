@@ -115,7 +115,7 @@ class EpicApi(requests.Session):
                 f" {type(efi_record)} instead")
         efi_record.described_by = efi.DescriptionResource(**self.profile)
         apply_fixes(efi_record)
-        efi_dict = efi_record.model_dump(exclude_none=True)
+        efi_dict = efi_record.model_dump(mode='json', exclude_none=True)
         for key_seq in self.PURGE_SLOTS:
             dict_ptr = efi_dict
             try:
