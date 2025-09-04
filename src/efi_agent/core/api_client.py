@@ -164,9 +164,8 @@ def apply_fixes(efi_record):
     Note, this function modifies the supplied record in place.
 
     """
-    try:
-        orig_value = efi_record['has_duration']['has_value']
-    except (KeyError, TypeError):
+    orig_value = efi_record.has_duration.has_value
+    if not orig_value:
         return
     if re.search(r'^PT[1-9]*[0-9][0-9]H[0-5][0-9]M[0-5][0-9]S$', orig_value):
         return
@@ -182,5 +181,5 @@ def apply_fixes(efi_record):
     seconds -= hours * 3600
     minutes = seconds // 60
     seconds -= minutes * 60
-    efi_record['has_duration']['has_value'] = \
+    efi_record.has_duration.has_value = \
         f"PT{hours:0>2}H{minutes:0>2}M{seconds:0>2}S"
