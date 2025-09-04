@@ -1,5 +1,5 @@
 import logging
-import pathlib
+from pathlib import Path
 import re
 import urllib.parse as urlparse
 
@@ -12,7 +12,7 @@ import yaml
 
 
 log = logging.getLogger(__name__)
-CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(
+CONFIG_DIR = Path(appdirs.user_config_dir(
     appname=__package__.split('.')[0]))
 
 
@@ -37,7 +37,9 @@ class EpicApi(requests.Session):
         ('described_by', 'last_modified'),
     ]
 
-    def __init__(self, profile, prefix, suffix=None, *args, **kwargs):
+    def __init__(
+            self, profile: Path | str, prefix: str, suffix: str | None = None,
+            *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prefix = prefix
         self.suffix = suffix
@@ -58,20 +60,17 @@ class EpicApi(requests.Session):
             self.base_url = f"{base_url}/"
         self.auth = auth.HTTPBasicAuth(creds['username'], creds['password'])
 
-    def create(self, efi_record):
+    def create(self, efi_record: efi.MovingImageRecord):
         url = self.prefix
         if self.suffix:
             url += f"?suffix={self.suffix}"
-        r = self.request('POST', url, efi_record=efi_record)
-        return r
+        return self.request('POST', url, efi_record=efi_record)
 
-    def update(self, pid, efi_record):
-        r = self.request('PUT', pid, efi_record=efi_record)
-        return r
+    def update(self, pid: str, efi_record: efi.MovingImageRecord):
+        return self.request('PUT', pid, efi_record=efi_record)
 
-    def get(self, pid):
-        r = self.request('GET', pid)
-        return r
+    def get(self, pid: str):
+        return self.request('GET', pid)
 
     def efi_from_response(self, response):
         if response.request.method in ('POST', 'PUT'):
