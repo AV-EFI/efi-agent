@@ -164,22 +164,23 @@ def apply_fixes(efi_record):
     Note, this function modifies the supplied record in place.
 
     """
-    orig_value = efi_record.has_duration.has_value
-    if not orig_value:
-        return
-    if re.search(r'^PT[1-9]*[0-9][0-9]H[0-5][0-9]M[0-5][0-9]S$', orig_value):
-        return
-    m = re.search(
-        r'^PT((?P<H>[0-9]+)H)?((?P<M>[0-9]+)M)?((?P<S>[0-9]+)S)?$',
-        orig_value)
-    if not m:
-        raise ValueError(f"Cannot parse duration: {orig_value}")
-    m_groups = m.groupdict()
-    seconds = int(m_groups['S'] or '0') + 60 * (
-        int(m_groups['M'] or '0') + 60 * int(m_groups['H'] or '0'))
-    hours = seconds // 3600
-    seconds -= hours * 3600
-    minutes = seconds // 60
-    seconds -= minutes * 60
-    efi_record.has_duration.has_value = \
-        f"PT{hours:0>2}H{minutes:0>2}M{seconds:0>2}S"
+    if isinstance(efi_record, efi.Item):
+        orig_duration = efi_record.has_duration.has_value
+    else:
+        orig_duration = None
+    if orig_duration and not re.search(
+            r'^PT[1-9]*[0-9][0-9]H[0-5][0-9]M[0-5][0-9]S$', orig_duration):
+        m = re.search(
+            r'^PT((?P<H>[0-9]+)H)?((?P<M>[0-9]+)M)?((?P<S>[0-9]+)S)?$',
+            orig_duration)
+        if not m:
+            raise ValueError(f"Cannot parse duration: {orig_duration}")
+        m_groups = m.groupdict()
+        seconds = int(m_groups['S'] or '0') + 60 * (
+            int(m_groups['M'] or '0') + 60 * int(m_groups['H'] or '0'))
+        hours = seconds // 3600
+        seconds -= hours * 3600
+        minutes = seconds // 60
+        seconds -= minutes * 60
+        efi_record.has_duration.has_value = \
+            f"PT{hours:0>2}H{minutes:0>2}M{seconds:0>2}S"
