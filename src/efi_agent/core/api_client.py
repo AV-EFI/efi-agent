@@ -164,7 +164,7 @@ def apply_fixes(efi_record):
     Note, this function modifies the supplied record in place.
 
     """
-    if isinstance(efi_record, efi.Item):
+    if isinstance(efi_record, efi.Item) and efi_record.has_duration:
         orig_duration = efi_record.has_duration.has_value
     else:
         orig_duration = None
