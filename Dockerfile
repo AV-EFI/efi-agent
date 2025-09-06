@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir /data
 
 # Clone repository into app directory
-RUN git clone https://github.com/AV-EFI/efi-agent.git app
+RUN git clone --depth 1 https://github.com/AV-EFI/efi-agent.git app
 
 # Install app in developer mode
 WORKDIR /app
