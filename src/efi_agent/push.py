@@ -6,7 +6,7 @@ import sys
 import click
 
 from .cli import cli_main
-from .core import api_client, task_manager
+from .core import epic_client, task_manager
 
 
 log = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
             if f.tell() != 0:
                 f.seek(0)
                 result_log = json.load(f)
-        api = api_client.EpicApi(profile, prefix, suffix=suffix)
+        api = epic_client.EpicClient(profile, prefix, suffix=suffix)
         for input_file in input_files:
             log.info(f"Processing {input_file}")
             try:
