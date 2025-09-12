@@ -7,9 +7,7 @@ from uuid import uuid4
 
 import appdirs
 from avefi_schema import model_pydantic_v2 as efi
-import requests
-from requests import auth
-from requests.exceptions import HTTPError, JSONDecodeError
+from httpx import BasicAuth, Client, HTTPError
 import yaml
 
 
@@ -23,12 +21,12 @@ class ApiError(HTTPError):
     def from_http_error(cls, e):
         try:
             msg = f"{e}: {e.response.json()}"
-        except JSONDecodeError:
+        except json.JSONDecodeError:
             msg = f"{e}: {e.response.text}"
         return cls(msg, response=e.response)
 
 
-class EpicApi(requests.Session):
+class EpicApi(Client):
     EFI_BASE_CLASS = efi.MovingImageRecord
     KIP = \
         'http://typeapi.lab.pidconsortium.net/v1/types/schema/' \
@@ -61,7 +59,7 @@ class EpicApi(requests.Session):
             self.base_url = base_url
         else:
             self.base_url = f"{base_url}/"
-        self.auth = auth.HTTPBasicAuth(creds['username'], creds['password'])
+        self.auth = BasicAuth(creds['username'], creds['password'])
 
     def create(self, efi_record: efi.MovingImageRecord):
         pid = f"{self.prefix}/{str(uuid4()).upper()}"
@@ -91,11 +89,12 @@ class EpicApi(requests.Session):
             pid = response.json().get('handle')
             values = response.json().get('values')
         elif response.request.method == 'GET':
-            if not response.url.startswith(f"{self.base_url}{self.prefix}"):
+            if not str(response.url).startswith(
+                    f"{self.base_url}{self.prefix}"):
                 raise RuntimeError(
                     f"URL in response does not start with {self.base_url}:"
                     f" {response.url}")
-            pid = urlparse.urlsplit(response.url[len(self.base_url):]).path
+            pid = str(response.url)[len(str(self.base_url)):]
             values = response.json()
         else:
             pid = None
