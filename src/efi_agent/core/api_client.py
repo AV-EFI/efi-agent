@@ -6,9 +6,7 @@ import urllib.parse as urlparse
 
 import appdirs
 from avefi_schema import model_pydantic_v2 as efi
-import requests
-from requests import auth
-from requests.exceptions import HTTPError, JSONDecodeError
+from httpx import BasicAuth, Client, HTTPError
 import yaml
 
 
@@ -22,12 +20,12 @@ class ApiError(HTTPError):
     def from_http_error(cls, e):
         try:
             msg = f"{e}: {e.response.json()}"
-        except JSONDecodeError:
+        except json.JSONDecodeError:
             msg = f"{e}: {e.response.text}"
         return cls(msg, response=e.response)
 
 
-class EpicApi(requests.Session):
+class EpicApi(Client):
     EFI_BASE_CLASS = efi.MovingImageRecord
     KIP = \
         'http://typeapi.lab.pidconsortium.net/v1/types/schema/' \
@@ -59,7 +57,7 @@ class EpicApi(requests.Session):
             self.base_url = base_url
         else:
             self.base_url = f"{base_url}/"
-        self.auth = auth.HTTPBasicAuth(creds['username'], creds['password'])
+        self.auth = BasicAuth(creds['username'], creds['password'])
 
     def create(self, efi_record: efi.MovingImageRecord):
         url = self.prefix
