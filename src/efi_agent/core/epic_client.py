@@ -2,30 +2,14 @@
 
 import json
 import logging
-from pathlib import Path
 import re
-import urllib.parse as urlparse
 from uuid import uuid4
 
-import appdirs
 from avefi_schema import model_pydantic_v2 as efi
-from httpx import BasicAuth, Client, HTTPError
-import yaml
+from httpx import Client, HTTPStatusError
 
 
 log = logging.getLogger(__name__)
-CONFIG_DIR = Path(appdirs.user_config_dir(
-    appname=__package__.split('.')[0]))
-
-
-class ApiError(HTTPError):
-    @classmethod
-    def from_http_error(cls, e):
-        try:
-            msg = f"{e}: {e.response.json()}"
-        except json.JSONDecodeError:
-            msg = f"{e}: {e.response.text}"
-        return cls(msg, response=e.response)
 
 
 class EpicClient(Client):
@@ -41,27 +25,12 @@ class EpicClient(Client):
     www_prefix = 'https://www.av-efi.net/film/'
 
     def __init__(
-            self, profile: Path | str, prefix: str, suffix: str | None = None,
-            *args, **kwargs):
-        super().__init__(*args, **kwargs)
+            self, profile: dict, prefix: str, suffix: str | None = None,
+            **kwargs):
+        super().__init__(**kwargs)
         self.prefix = prefix
         self.suffix = suffix
-        with open(profile) as f:
-            self.profile = yaml.safe_load(f)
-        credentials_path = CONFIG_DIR / 'credentials.yml'
-        with credentials_path.open() as f:
-            credentials = yaml.safe_load(f)
-        for creds in credentials:
-            if creds['prefix'] == prefix:
-                break
-        else:
-            raise RuntimeError(f"Did not find credentials for prefix {prefix}")
-        base_url = creds['base_url']
-        if base_url.endswith('/'):
-            self.base_url = base_url
-        else:
-            self.base_url = f"{base_url}/"
-        self.auth = BasicAuth(creds['username'], creds['password'])
+        self.profile = profile
 
     def create(self, efi_record: efi.MovingImageRecord):
         pid = f"{self.prefix}/{str(uuid4()).upper()}"
@@ -154,21 +123,22 @@ class EpicClient(Client):
         }]
 
     def request(self, method, relative_url, efi_record=None, **kwargs):
-        url = urlparse.urljoin(self.base_url, relative_url)
-        r = super().request(
-            method, url, auth=self.auth, **kwargs)
+        r = super().request(method, relative_url, **kwargs)
         # Evil hack trying to mitigate spurious server errors
         if r.status_code == 500:
             log.warning(
                 f"Server sent {r.status_code} in response to"
                 f" {r.request.method} on {r.url}, retrying once")
-            r = super().request(
-                method, url, auth=self.auth, **kwargs)
+            r = super().request(method, relative_url, **kwargs)
         try:
-            r.raise_for_status()
-        except HTTPError as e:
-            raise ApiError.from_http_error(e) from e
-        return r
+            return r.raise_for_status()
+        except HTTPStatusError as e:
+            try:
+                msg = f"{e}: {e.response.json()}"
+            except json.JSONDecodeError:
+                msg = f"{e}: {e.response.text}"
+            log.error(msg)
+            raise
 
 
 def apply_fixes(efi_record):
