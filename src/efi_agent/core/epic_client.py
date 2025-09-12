@@ -25,7 +25,7 @@ class ApiError(HTTPError):
         return cls(msg, response=e.response)
 
 
-class EpicApi(Client):
+class EpicClient(Client):
     EFI_BASE_CLASS = efi.MovingImageRecord
     KIP = \
         'http://typeapi.lab.pidconsortium.net/v1/types/schema/' \
