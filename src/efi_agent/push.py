@@ -5,13 +5,17 @@ import logging
 import pathlib
 import sys
 
+import appdirs
 import click
+import yaml
 
 from .cli import cli_main
 from .core import epic_client, task_manager
 
 
 log = logging.getLogger(__name__)
+CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(
+    appname=__package__.split('.')[0]))
 
 
 @cli_main.command()
@@ -39,20 +43,25 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
             if f.tell() != 0:
                 f.seek(0)
                 result_log = json.load(f)
-        api = epic_client.EpicClient(profile, prefix, suffix=suffix)
-        for input_file in input_files:
-            log.info(f"Processing {input_file}")
-            try:
-                scheduler = task_manager.Scheduler(
-                    api, result_log, input_file=pathlib.Path(input_file))
-                scheduler.submit()
-            except task_manager.UnreferencedError as e:
-                log.error(f"Skipped {input_file} due to incomplete data: {e}")
-            except Exception:
-                write_pid_journal(journal_file, result_log)
-                raise
-            else:
-                write_pid_journal(journal_file, result_log)
+        with open(profile) as f:
+            profile_dict = yaml.safe_load(f)
+        with epic_client.EpicClient(
+                profile_dict, prefix, suffix=suffix,
+                **get_config(prefix)) as client:
+            for input_file in input_files:
+                log.info(f"Processing {input_file}")
+                try:
+                    scheduler = task_manager.Scheduler(
+                        api, result_log, input_file=pathlib.Path(input_file))
+                    scheduler.submit()
+                except task_manager.UnreferencedError as e:
+                    log.error(
+                        f"Skipped {input_file} due to incomplete data: {e}")
+                except Exception:
+                    write_pid_journal(journal_file, result_log)
+                    raise
+                else:
+                    write_pid_journal(journal_file, result_log)
     except Exception:
         log.exception('Could not handle the following exception:')
         sys.exit(1)
@@ -63,3 +72,22 @@ def write_pid_journal(journal_file, result_log):
         with journal_file.open('w') as f:
             json.dump(result_log, f, indent=2)
             f.write('\n')
+
+
+def get_config(prefix: str) -> dict:
+    result = {}
+    credentials_path = CONFIG_DIR / 'credentials.yml'
+    with credentials_path.open() as f:
+        credentials = yaml.safe_load(f)
+    for creds in credentials:
+        if creds['prefix'] == prefix:
+            break
+    else:
+        raise RuntimeError(f"Did not find credentials for prefix {prefix}")
+    base_url = creds['base_url']
+    if base_url.endswith('/'):
+        result['base_url'] = base_url
+    else:
+        result['base_url'] = f"{base_url}/"
+    result['auth'] = BasicAuth(creds['username'], creds['password'])
+    return result
