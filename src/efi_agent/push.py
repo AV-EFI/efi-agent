@@ -8,7 +8,6 @@ import sys
 import appdirs
 import click
 from httpx import BasicAuth
-import yaml
 
 from .cli import cli_main
 from .core import epic_client, task_manager
@@ -45,7 +44,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
                 f.seek(0)
                 result_log = json.load(f)
         with open(profile) as f:
-            profile_dict = yaml.safe_load(f)
+            profile_dict = json.load(f)
         with epic_client.EpicClient(
                 profile_dict, prefix, suffix=suffix,
                 **get_config(prefix)) as api:
@@ -77,9 +76,9 @@ def write_pid_journal(journal_file, result_log):
 
 def get_config(prefix: str) -> dict:
     result = {}
-    credentials_path = CONFIG_DIR / 'credentials.yml'
+    credentials_path = CONFIG_DIR / 'credentials.json'
     with credentials_path.open() as f:
-        credentials = yaml.safe_load(f)
+        credentials = json.load(f)
     for creds in credentials:
         if creds['prefix'] == prefix:
             break
