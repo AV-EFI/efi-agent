@@ -7,6 +7,7 @@ import logging
 import pathlib
 
 from avefi_schema import model_pydantic_v2 as efi
+from pydantic import ValidationError
 
 
 log = logging.getLogger(__name__)
@@ -65,10 +66,17 @@ class Scheduler:
 
     def load_from_file(self, input_file):
         with input_file.open() as f:
-            records = efi.MovingImageRecords.model_validate_json(f.read())
-        efi_records = records.root
-        if not isinstance(efi_records, list):
-            efi_records = [efi_records]
+            input = f.read()
+        try:
+            efi_records = efi.MovingImageRecords.model_validate_json(
+                input).root
+        except ValidationError as e:
+            err0 = e.errors()[0]
+            if err0.get('loc') == () and err0.get('type') == 'list_type':
+                efi_records = [
+                    efi.MovingImageRecordTypeAdapter.validate_json(input)]
+            else:
+                raise
         for record in efi_records:
             self.add_record(record)
 
