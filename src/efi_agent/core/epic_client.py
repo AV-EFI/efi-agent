@@ -6,7 +6,7 @@ import re
 from uuid import uuid4
 
 from avefi_schema import model_pydantic_v2 as efi
-from httpx import Client, HTTPStatusError
+from httpx import Client, HTTPStatusError, Timeout
 
 
 log = logging.getLogger(__name__)
@@ -26,8 +26,10 @@ class EpicClient(Client):
 
     def __init__(
             self, profile: dict, prefix: str, suffix: str | None = None,
-            **kwargs):
-        super().__init__(**kwargs)
+            timeout: Timeout | None = None, **kwargs):
+        if timeout is None:
+            timeout = Timeout(90)
+        super().__init__(timeout=timeout, **kwargs)
         self.prefix = prefix
         self.suffix = suffix
         self.profile = profile
