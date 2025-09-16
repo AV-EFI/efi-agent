@@ -19,8 +19,6 @@ class EpicClient(Client):
         '21.T11969/873d5c9f6ebbffecf1df'
     PURGE_SLOTS = [
         ('has_identifier',),
-        ('has_source_key',),
-        ('described_by', 'last_modified'),
     ]
     www_prefix = 'https://www.av-efi.net/film/'
 
@@ -80,15 +78,10 @@ class EpicClient(Client):
                 efi_record = json.loads(values[1]['parsed_data']['value'])
                 efi_record.get('has_identifier', []).append(
                     efi.AVefiResource(id=pid).model_dump())
-                if efi_record.get('described_by'):
-                    efi_record['described_by']['last_modified'] = values[2][
-                        'timestamp']
             else:
                 efi_record = efi.MovingImageRecordTypeAdapter.validate_json(
                     values[1]['parsed_data']['value'])
                 efi_record.has_identifier.append(efi.AVefiResource(id=pid))
-                if efi_record.described_by:
-                    efi_record.described_by.last_modified = values[2]['timestamp']
         else:
             efi_record = None
         return pid, efi_record
@@ -99,7 +92,7 @@ class EpicClient(Client):
             raise ValueError(
                 f"efi_record must be of type {self.EFI_BASE_CLASS} but is"
                 f" {type(efi_record)} instead")
-        efi_record.described_by = efi.DescriptionResource(**self.profile)
+        described_by_issuer(efi_record, self.profile)
         apply_fixes(efi_record)
         efi_dict = efi_record.model_dump(mode='json', exclude_none=True)
         for key_seq in self.PURGE_SLOTS:
@@ -141,6 +134,39 @@ class EpicClient(Client):
                 msg = f"{e}: {e.response.text}"
             log.error(msg)
             raise
+
+
+def described_by_issuer(
+        record: efi.MovingImageRecord, issuer: dict
+) -> efi.DescriptionResource:
+    """Return described_by entry matching ``issuer``.
+
+    Get the DescriptionResource entry of ``record`` matching
+    ``issuer`` if present and create it if not. Note that described_by
+    is multivalued for WorkVariant records only. Therefore, ValueError
+    will be raised for Manifestation or Item records that alreadey
+    have a value for described_by that does not match ``issuer``.
+
+    """
+    if isinstance(record, efi.WorkVariant):
+        for described_by in record.described_by or []:
+            if described_by.has_issuer_id == issuer['has_issuer_id']:
+                break
+        else:
+            record.described_by = [efi.DescriptionResource(**issuer)]
+            described_by = record.described_by[0]
+    else:
+        if record.described_by:
+            described_by = record.described_by
+            if described_by.has_issuer_id != issuer['has_issuer_id']:
+                raise ValueError(
+                    f"Cannot add source_key {source_key} by issuer_id"
+                    f" {issuer.has_issuer_id} to record from issuer"
+                    f" {described_by.has_issuer_id}")
+        else:
+            record.described_by = efi.DescriptionResource(**issuer)
+            described_by = record.described_by
+    return described_by
 
 
 def apply_fixes(efi_record):
