@@ -14,7 +14,7 @@ dependencies = [
     "avefi_schema @ git+https://github.com/AV-EFI/av-efi-schema.git",
     "appdirs>=1.4.4",
     "click>=8.1.7",
-    "httpx>=0.28.1",
+    "httpx[http2]>=0.28.1",
 ]
 
 [project.scripts]
