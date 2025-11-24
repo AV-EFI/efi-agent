@@ -20,7 +20,7 @@ class EpicClient(Client):
     PURGE_SLOTS = [
         ('has_identifier',),
     ]
-    www_prefix = 'https://www.av-efi.net/film/'
+    www_prefix = 'https://www.av-efi.net/res/'
 
     def __init__(
             self, profile: dict, prefix: str, suffix: str | None = None,
