@@ -193,7 +193,10 @@ class Scheduler:
         for handler in self.handlers:
             if handler.tasks.get(Operation.CREATE) \
                and not isinstance(handler.record, efi.Item) \
-               and not handler.referenced_by:
+               and not handler.referenced_by \
+               and not (isinstance(handler.record, efi.WorkVariant)
+                        and handler.record.type == "Analytic"
+                        and handler.record.is_part_of):
                 raise UnreferencedError(
                     f"No item provided for {handler.local_id}")
             dependencies = set()
