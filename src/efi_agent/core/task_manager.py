@@ -276,7 +276,7 @@ class Task:
                     else:
                         has_item = [
                             efi.AVefiResource.model_validate(i)
-                            for i in json_record['has_item']]
+                            for i in json_record.get('has_item', [])]
                 else:
                     has_item = []
                 for item_handler in _filter_by(
