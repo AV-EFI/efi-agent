@@ -131,9 +131,9 @@ class EpicClient(Client):
             return r.raise_for_status()
         except HTTPStatusError as e:
             try:
-                msg = f"{e}: {e.response.json()}"
+                msg = f"{e}\nResponse body:\n{e.response.json()}"
             except json.JSONDecodeError:
-                msg = f"{e}: {e.response.text}"
+                msg = f"{e}\nResponse body:\n{e.response.text}"
             log.error(msg)
             raise
 
