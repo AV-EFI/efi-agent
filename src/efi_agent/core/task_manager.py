@@ -7,6 +7,7 @@ import logging
 import pathlib
 
 from avefi_schema import model_pydantic_v2 as efi
+import httpx
 from pydantic import ValidationError
 
 
