@@ -258,6 +258,7 @@ class Task:
             # must be an update then
             if not handler.record \
                or isinstance(handler.record, efi.Manifestation):
+                has_item = []
                 if not handler.tasks.get(Operation.CREATE):
                     try:
                         r = self.client.get(handler.pid)
@@ -274,22 +275,20 @@ class Task:
                         # validate against current schema yet
                         pid, json_record = self.client.efi_from_response(
                             r, unvalidated_json=True)
-                    # Todo: Update references if PID has become an alias
-                    if pid != handler.pid:
-                        raise RuntimeError(
-                            f"PID for manifestation changed from {handler.pid}"
-                            f" to {pid}")
-                    if not handler.record:
-                        handler.record = \
-                            efi.MovingImageRecordTypeAdapter.validate(
-                                json_record)
-                        has_item = handler.record.has_item
-                    else:
-                        has_item = [
-                            efi.AVefiResource.model_validate(i)
-                            for i in json_record.get('has_item', [])]
-                else:
-                    has_item = []
+                        # Todo: Update references if PID has become an alias
+                        if pid != handler.pid:
+                            raise RuntimeError(
+                                f"PID for manifestation changed from {handler.pid}"
+                                f" to {pid}")
+                        if not handler.record:
+                            handler.record = \
+                                efi.MovingImageRecordTypeAdapter.validate(
+                                    json_record)
+                            has_item = handler.record.has_item
+                        else:
+                            has_item = [
+                                efi.AVefiResource.model_validate(i)
+                                for i in json_record.get('has_item', [])]
                 for item_handler in _filter_by(
                         handler.referenced_by, 'is_item_of'):
                     item_id = efi.AVefiResource(id=item_handler.pid)
