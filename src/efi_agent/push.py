@@ -5,17 +5,13 @@ import logging
 import pathlib
 import sys
 
-import appdirs
 import click
-from httpx import BasicAuth
 
 from .cli import cli_main
 from .core import epic_client, task_manager
 
 
 log = logging.getLogger(__name__)
-CONFIG_DIR = pathlib.Path(appdirs.user_config_dir(
-    appname=__package__.split('.')[0]))
 
 
 @cli_main.command()
@@ -46,8 +42,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
         with open(profile) as f:
             profile_dict = json.load(f)
         with epic_client.EpicClient(
-                profile_dict, prefix, suffix=suffix,
-                **get_config(prefix)) as api:
+                profile_dict, prefix, suffix=suffix) as api:
             for input_file in input_files:
                 log.info(f"Processing {input_file}")
                 try:
@@ -69,22 +64,3 @@ def write_pid_journal(journal_file, result_log):
         with journal_file.open('w') as f:
             json.dump(result_log, f, indent=2)
             f.write('\n')
-
-
-def get_config(prefix: str) -> dict:
-    result = {}
-    credentials_path = CONFIG_DIR / 'credentials.json'
-    with credentials_path.open() as f:
-        credentials = json.load(f)
-    for creds in credentials:
-        if creds['prefix'] == prefix:
-            break
-    else:
-        raise RuntimeError(f"Did not find credentials for prefix {prefix}")
-    base_url = creds['base_url']
-    if base_url.endswith('/'):
-        result['base_url'] = base_url
-    else:
-        result['base_url'] = f"{base_url}/"
-    result['auth'] = BasicAuth(creds['username'], creds['password'])
-    return result

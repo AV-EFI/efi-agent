@@ -8,12 +8,13 @@ from uuid import uuid4
 from avefi_schema import model_pydantic_v2 as efi
 from httpx import Client, HTTPStatusError, Timeout
 
+from .config import get_credentials, settings
+
 
 log = logging.getLogger(__name__)
 
 
 class EpicClient(Client):
-    CONNECTION_TIMEOUT = 180
     EFI_BASE_CLASS = efi.MovingImageRecord
     KIP = \
         'http://typeapi.lab.pidconsortium.net/v1/types/schema/' \
@@ -27,8 +28,8 @@ class EpicClient(Client):
             self, profile: dict, prefix: str, suffix: str | None = None,
             timeout: Timeout | None = None, **kwargs):
         if timeout is None:
-            timeout = Timeout(self.CONNECTION_TIMEOUT)
-        super().__init__(timeout=timeout, **kwargs)
+            timeout = Timeout(settings.CONNECTION_TIMEOUT)
+        super().__init__(timeout=timeout, **get_credentials(prefix), **kwargs)
         self.prefix = prefix
         self.suffix = suffix
         self.profile = profile
