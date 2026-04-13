@@ -57,10 +57,7 @@ def push(input_files, journal=None, profile=None, prefix=None, suffix=None):
                 except task_manager.UnreferencedError as e:
                     log.error(
                         f"Skipped {input_file} due to incomplete data: {e}")
-                except Exception:
-                    write_pid_journal(journal_file, result_log)
-                    raise
-                else:
+                finally:
                     write_pid_journal(journal_file, result_log)
     except Exception:
         log.exception('Could not handle the following exception:')
