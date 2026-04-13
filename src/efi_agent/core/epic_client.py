@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 
 
 class EpicClient(Client):
+    CONNECTION_TIMEOUT = 180
     EFI_BASE_CLASS = efi.MovingImageRecord
     KIP = \
         'http://typeapi.lab.pidconsortium.net/v1/types/schema/' \
@@ -26,7 +27,7 @@ class EpicClient(Client):
             self, profile: dict, prefix: str, suffix: str | None = None,
             timeout: Timeout | None = None, **kwargs):
         if timeout is None:
-            timeout = Timeout(90)
+            timeout = Timeout(self.CONNECTION_TIMEOUT)
         super().__init__(timeout=timeout, **kwargs)
         self.prefix = prefix
         self.suffix = suffix
