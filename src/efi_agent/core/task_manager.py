@@ -258,11 +258,21 @@ class Task:
             if not handler.record \
                or isinstance(handler.record, efi.Manifestation):
                 if not handler.tasks.get(Operation.CREATE):
-                    r = self.client.get(handler.pid)
-                    # Note that old record potentially does not
-                    # validate against current schema yet
-                    pid, json_record = self.client.efi_from_response(
-                        r, unvalidated_json=True)
+                    try:
+                        r = self.client.get(handler.pid)
+                    except httpx.HTTPStatusError as e:
+                        if e.response.status_code == 404 and handler.record:
+                            log.warning(
+                                f"PID '{handler.pid}' did not exist when"
+                                f" trying to update, created it instead")
+                            pass
+                        else:
+                            raise
+                    else:
+                        # Note that old record potentially does not
+                        # validate against current schema yet
+                        pid, json_record = self.client.efi_from_response(
+                            r, unvalidated_json=True)
                     # Todo: Update references if PID has become an alias
                     if pid != handler.pid:
                         raise RuntimeError(
