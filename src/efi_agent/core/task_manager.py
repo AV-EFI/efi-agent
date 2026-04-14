@@ -266,7 +266,7 @@ class Task:
                         if e.response.status_code == 404 and handler.record:
                             log.warning(
                                 f"PID '{handler.pid}' did not exist when"
-                                f" trying to update, created it instead")
+                                f" trying to update, creating it instead")
                             pass
                         else:
                             raise
