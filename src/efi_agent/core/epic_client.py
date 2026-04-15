@@ -73,16 +73,16 @@ class EpicClient(Client):
             pid = None
             values = None
         if values:
-            if values[0].get('parsed_data', {}).get('value') != self.KIP:
+            if values[0].get('parsed_data', {}) != self.KIP:
                 raise ValueError(
                     f"Handle not compliant with KIP {self.KIP} ({pid})")
             if unvalidated_json:
-                efi_record = json.loads(values[1]['parsed_data']['value'])
+                efi_record = json.loads(values[1]['parsed_data'])
                 efi_record.get('has_identifier', []).append(
                     efi.AVefiResource(id=pid).model_dump())
             else:
                 efi_record = efi.MovingImageRecordTypeAdapter.validate_json(
-                    values[1]['parsed_data']['value'])
+                    values[1]['parsed_data'])
                 efi_record.has_identifier.append(efi.AVefiResource(id=pid))
         else:
             efi_record = None
