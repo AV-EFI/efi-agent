@@ -50,6 +50,7 @@ class EpicClient(Client):
         headers = {}
         if not preexisting:
             headers = {'If-None-Match': '*'}
+        log.debug(f"pid: {pid}, headers: {headers}\npayload: {payload}")
         return self.request('PUT', pid, headers=headers, json=payload)
 
     def get(self, pid: str):
