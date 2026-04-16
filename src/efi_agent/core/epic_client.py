@@ -48,8 +48,8 @@ class EpicClient(Client):
             preexisting: bool = True):
         payload = self.handle_from_efi(pid, efi_record)
         headers = {}
-#        if not preexisting:
-#            headers = {'If-None-Match': '*'}
+        if not preexisting:
+            headers = {'If-None-Match': '*'}
         log.info(f"pid: {pid}, headers: {headers}\npayload: {payload}")
         return self.request('PUT', pid, headers=headers, json=payload)
 
