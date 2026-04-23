@@ -12,7 +12,7 @@ readme = "README.md"
 license = {text = "MIT"}
 dependencies = [
     "avefi_schema @ git+https://github.com/AV-EFI/av-efi-schema.git",
-    "click>=8.1.7",
+    "click>=8.3.3",
     "httpx[http2]>=0.28.1",
     "pydantic-settings>=2.13.1",
 ]
