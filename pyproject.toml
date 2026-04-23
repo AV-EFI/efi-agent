@@ -14,7 +14,7 @@ dependencies = [
     "avefi_schema @ git+https://github.com/AV-EFI/av-efi-schema.git",
     "click>=8.1.7",
     "httpx[http2]>=0.28.1",
-    "pydantic-settings>=2.13.1",
+    "pydantic-settings>=2.14.0",
 ]
 
 [project.scripts]
